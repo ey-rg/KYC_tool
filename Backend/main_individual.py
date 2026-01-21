@@ -1902,8 +1902,8 @@ def hierarchy_chart():
 @app.route("/street_view",methods=['POST'])
 def street_view():
     req = request.get_json()
-    # api_key = 'AIzaSyDsMxdXSg84lkyg5OfwAgAIVOk2pSDjHwI'
-    api_key = 'AIzaSyDsANyIStoUKxc1vd5siWAhMn-1S4_J5RM'
+    
+    api_key = 'GOOGLE_API_KEY'
     gmaps = googlemaps.Client(key=api_key)
     response = dict()
     try:
