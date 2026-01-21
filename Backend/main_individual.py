@@ -95,7 +95,7 @@ import time
 os.environ['OPENAI_API_KEY'] = "OPEN_AI_API_KEY"
 os.environ['CURL_CA_BUNDLE'] = ''
 os.environ['REQUESTS_CA_BUNDLE'] = ''
-key = "AIzaSyCGyG3fIDGeHc_aOaWIvWLg8bvAZ7lMhoA"
+key = "KEY"
 os.environ["GOOGLE_API_KEY"] = key
 genai.configure(api_key = key)
 
@@ -104,8 +104,8 @@ CORS(app)
 
 app.config['MAIL_SERVER']='smtp.gmail.com'
 app.config['MAIL_PORT'] = 465
-app.config['MAIL_USERNAME'] = 'ruleautomation8@gmail.com'
-app.config['MAIL_PASSWORD'] = 'yayykfilveqkoime'
+app.config['MAIL_USERNAME'] = 'user_email'
+app.config['MAIL_PASSWORD'] = 'user_pass'
 app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 mail = Mail(app)
