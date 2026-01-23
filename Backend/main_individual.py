@@ -1243,7 +1243,7 @@ def entity_details():
             output_list = []
             entity_details = ['Registered Address']
             company_database = ['49 Featherstone Street, London, United Kingdom, EC1Y8SY ']
-            llm_output = ['Building 3 Chiswick Park, 566 Chiswick High Road, London, England, W4 5YA']
+            llm_output = ['Plot N0. 443, House No. 204, Krishna nagar, Bhagwanpur, Varanasi Pincode - 221005']
 
             for key, cdb_value, llm_value in zip(entity_details, company_database, llm_output):
                 entry = {
