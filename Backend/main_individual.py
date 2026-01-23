@@ -16,6 +16,7 @@ import googlemaps
 #     from langchain.llms import AzureOpenAI
 # except ImportError:
 #     from langchain_community.llms import AzureOpenAI
+
 from skimage import filters
 from transformers import pipeline
 from sentence_transformers import SentenceTransformer, util
@@ -49,6 +50,12 @@ pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tessera
 from passporteye import read_mrz
 from datetime import datetime
 import docx
+
+# Load environment variables from the .env file
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 # load_summarize_chain has been deprecated in newer langchain versions
 # try:
 #     from langchain.chains.summarize import load_summarize_chain
@@ -92,10 +99,10 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 import time
 
 
-os.environ['OPENAI_API_KEY'] = "OPEN_AI_API_KEY"
+os.environ['OPENAI_API_KEY'] = os.getenv("OPENAI_API_KEY")
 os.environ['CURL_CA_BUNDLE'] = ''
 os.environ['REQUESTS_CA_BUNDLE'] = ''
-key = "KEY"
+key = os.getenv("GOOGLE_API_KEY")
 os.environ["GOOGLE_API_KEY"] = key
 genai.configure(api_key = key)
 
@@ -104,8 +111,8 @@ CORS(app)
 
 app.config['MAIL_SERVER']='smtp.gmail.com'
 app.config['MAIL_PORT'] = 465
-app.config['MAIL_USERNAME'] = 'user_email'
-app.config['MAIL_PASSWORD'] = 'user_pass'
+app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
+app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
 app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 mail = Mail(app)
@@ -223,7 +230,7 @@ def fetch_and_scrape(url,keyword):
 
 def filter_sentences_with_gpt3(content,search_query):
     try:
-        openai.api_key = "32c8f6789c1649f588d42312a2d827d0"
+        openai.api_key = os.getenv("OPENAI_API_KEY1")
         openai.api_base = "https://bigaidea.openai.azure.com/"
         openai.api_type = 'azure'
         openai.api_version = '2022-12-01'
@@ -442,7 +449,7 @@ def adverse_media_summarization():
         if not (i.startswith('URL') or i.startswith('---') or i.startswith('The site is') or i.startswith('Content:')):
             cleaned_decoded_text = cleaned_decoded_text + i
     print(f'Cleaned Decoded Text : {cleaned_decoded_text}')
-    openai.api_key = "32c8f6789c1649f588d42312a2d827d0"
+    openai.api_key = os.getenv("OPENAI_API_KEY1")
     openai.api_base = "https://bigaidea.openai.azure.com/"
     openai.api_type = 'azure'
     openai.api_version = '2022-12-01'
@@ -852,7 +859,7 @@ def llm_process(files,questions):
     #if asked about Industry Sectors with Higher Corruption Risk, give answer  Check from Database
     #if asked about Nature of business give answer exactly in one word, dont give answer in full form like  Nature of business: followed by answer
 
-    openai_api_key = '32c8f6789c1649f588d42312a2d827d0'
+    openai_api_key = os.getenv("OPENAI_API_KEY1")
     openai.api_type = 'azure'
     openai.api_base = "https://bigaidea.openai.azure.com/"
     openai_api_version = '2022-12-01'
@@ -1089,167 +1096,174 @@ def matcher_json_creation(company_database,llm_output,source,entity_details,spec
 #         output_dict = {"output": output_list}
 #         return output_dict
 
+
+##------- Commented for individual KYC (entity not needed hence added "Unknown" to handle 500 error)--------
+
 @app.route('/entity_details', methods=['POST'])
 def entity_details():
-    req = request.get_json()
-    entity = req["entity"]
-    tab = req['tab']
+    try:
+        req = request.get_json()
+        entity = req.get("entity", "Unknown")
+        tab = req.get('tab', '')
 
-    if tab == 'company_details':
-        output_list = []
-        entity_details = ["Entity Name", "Entity Type", "Entity Status", "Company Registration Number",
-                          "Ultimate Parent Company", "Registered Office Address", "Legal Existence Of The Entity",
-                          "US Tax Identification Number", "Foreign Tax Identification Number",
-                          "Registered Agent Information"]
-        company_database = ["Emergent Biosolutions UK Ltd", "Private Limited Company", "Active", "08717359",
-                            "Emergent Biosolutions INC", "49 Featherstone Street, London, United Kingdom, EC1Y8SY",
-                            "Yes", "123456789",
-                            "987654", "NA"]
-        llm = ["Emergent Biosolutions UK Ltd", "Private Limited Business", "Active", "08717359",
-               "Emergent Biosolutions INC",
-               "Building 3 Chiswick Park, 566 Chiswick High Road, London, England, W4 5YA", "Yes",
-               "Data not Available", "Data not available", "Data not available"]
-        source = ["Trade Register", "Trade Register", "Trade Register", "Trade Register", "Audited Annual Report",
-                  "Trade Register", "Article of Association", "NA", "NA", "NA"]
-        matcher_li = ["Matched", "Matched", "Matched", "Matched", "Matched", "Not Matched", "Matched", "NA",
-                      "NA","NA"]
-        update_database = ["Not Required", "Not Required", "Not Required", "Not Required", "Not Required", "Required",
-                           "Not Required",
-                           "Not Required", "Not Required", "NA"]
+        if tab == 'company_details':
+            output_list = []
+            entity_details = ["Entity Name", "Entity Type", "Entity Status", "Company Registration Number",
+                              "Ultimate Parent Company", "Registered Office Address", "Legal Existence Of The Entity",
+                              "US Tax Identification Number", "Foreign Tax Identification Number",
+                              "Registered Agent Information"]
+            company_database = ["Emergent Biosolutions UK Ltd", "Private Limited Company", "Active", "08717359",
+                                "Emergent Biosolutions INC", "49 Featherstone Street, London, United Kingdom, EC1Y8SY",
+                                "Yes", "123456789",
+                                "987654", "NA"]
+            llm = ["Emergent Biosolutions UK Ltd", "Private Limited Business", "Active", "08717359",
+                   "Emergent Biosolutions INC",
+                   "Building 3 Chiswick Park, 566 Chiswick High Road, London, England, W4 5YA", "Yes",
+                   "Data not Available", "Data not available", "Data not available"]
+            source = ["Trade Register", "Trade Register", "Trade Register", "Trade Register", "Audited Annual Report",
+                      "Trade Register", "Article of Association", "NA", "NA", "NA"]
+            matcher_li = ["Matched", "Matched", "Matched", "Matched", "Matched", "Not Matched", "Matched", "NA",
+                          "NA","NA"]
+            update_database = ["Not Required", "Not Required", "Not Required", "Not Required", "Not Required", "Required",
+                               "Not Required",
+                               "Not Required", "Not Required", "NA"]
 
-        for key, cdb_value, llm_value, source_value, matcher_value, udb_value in zip(entity_details, company_database,
-                                                                                     llm, source, matcher_li,
-                                                                                     update_database):
-            entry = {
-                'Detail': key,
-                'company_database': cdb_value,
-                'llm': llm_value.strip(),
-                'source': source_value,
-                'matcher_li': matcher_value,
-                'external_matcher_li': '-',
-                'update_database': udb_value
-            }
-            output_list.append(entry)
-        output_dict = {"output": output_list}
-        return output_dict
-    if tab == 'business_type':
-        output_list = []
-        entity_details = ["Nature of Business", "Industry Sectors", "Country of Formation", "Country of Operation",
-                          "Engaged in Economic Sanctions", "Is Transactions Related to Oil,Military,Arms etc"]
-        company_database = ["Pharmaceuticals", "Pharmaceuticals", "United Kingdom", "United Kingdom", "No", "No"]
-        llm = ["Pharmaceuticals", "Pharmaceuticals", "United Kingdom", "United Kingdom", "Data Not available", "No"]
-        source = ["Trade Register", "Trade Register", "Trade Register", "Trade Register", "Data Not available",
-                  "Trade Register"]
-        matcher_li = ["Matched", "Matched", "Matched", "Matched", "N/A", "Matched"]
-        update_database = ["Not Required", "Not Required", "Not Required", "Not Required", "Not Required",
-                           "Not Required"]
-        risk_status = ["Low", "Low", "Low", "Low", "N/A", "Low"]
-        for key, cdb_value, llm_value, source_value, matcher_value,risk_value,udb_value in zip(entity_details, company_database,
-                                                                                     llm, source, matcher_li,risk_status,
-                                                                                     update_database):
-            entry = {
-                'Detail': key,
-                'company_database': cdb_value,
-                'llm': llm_value.strip(),
-                'source': source_value,
-                'matcher_li': matcher_value,
-                'risk_status':risk_value,
-                'external_matcher_li': '-',
-                'update_database': udb_value
-            }
-            output_list.append(entry)
-        output_dict = {"output": output_list}
-        return output_dict
+            for key, cdb_value, llm_value, source_value, matcher_value, udb_value in zip(entity_details, company_database,
+                                                                                         llm, source, matcher_li,
+                                                                                         update_database):
+                entry = {
+                    'Detail': key,
+                    'company_database': cdb_value,
+                    'llm': llm_value.strip(),
+                    'source': source_value,
+                    'matcher_li': matcher_value,
+                    'external_matcher_li': '-',
+                    'update_database': udb_value
+                }
+                output_list.append(entry)
+            output_dict = {"output": output_list}
+            return output_dict
+        
+        elif tab == 'business_type':
+            output_list = []
+            entity_details = ["Nature of Business", "Industry Sectors", "Country of Formation", "Country of Operation",
+                              "Engaged in Economic Sanctions", "Is Transactions Related to Oil,Military,Arms etc"]
+            company_database = ["Pharmaceuticals", "Pharmaceuticals", "United Kingdom", "United Kingdom", "No", "No"]
+            llm = ["Pharmaceuticals", "Pharmaceuticals", "United Kingdom", "United Kingdom", "Data Not available", "No"]
+            source = ["Trade Register", "Trade Register", "Trade Register", "Trade Register", "Data Not available",
+                      "Trade Register"]
+            matcher_li = ["Matched", "Matched", "Matched", "Matched", "N/A", "Matched"]
+            update_database = ["Not Required", "Not Required", "Not Required", "Not Required", "Not Required",
+                               "Not Required"]
+            risk_status = ["Low", "Low", "Low", "Low", "N/A", "Low"]
+            for key, cdb_value, llm_value, source_value, matcher_value,risk_value,udb_value in zip(entity_details, company_database,
+                                                                                         llm, source, matcher_li,risk_status,
+                                                                                         update_database):
+                entry = {
+                    'Detail': key,
+                    'company_database': cdb_value,
+                    'llm': llm_value.strip(),
+                    'source': source_value,
+                    'matcher_li': matcher_value,
+                    'risk_status':risk_value,
+                    'external_matcher_li': '-',
+                    'update_database': udb_value
+                }
+                output_list.append(entry)
+            output_dict = {"output": output_list}
+            return output_dict
 
-    if tab == 'fund_account_details':
-        output_list = []
-        entity_details = ['Source of Funds Entity', 'List of Beneficial Owners' ,'Funds of Beneficial Owners', 'Purpose of Account',
-                         'Trust Deed Information', 'Entity Asset', 'Entity Liabilities']
-        company_database = ['NA', 'Kamal Kumar,Jodie Pippas', 'NA','NA', 'NA', 'NA', 'NA']
-        # llm_output = ['Data not available', 'Kamal Kumar,Jodie Pippas','Data not available', 'Data not available', 'Data not available',
-        #        'Data not available', 'Data not available']
-        # source = ['NA', 'Audited Annual Report', 'NA', 'NA','NA', 'NA', 'NA']
-        information_from_client = ['NA','Kamal Kumar,Jodie Pippas', 'NA','NA', 'NA', 'NA', 'NA']
-        confirmation = ['-', 'verified','-','-','-','-','-']
-        update_database = ['NA', 'NA','NA', 'NA', 'NA', 'NA','NA']
-        for key, cdb_value, info, matcher_value, udb_value in zip(entity_details, company_database, information_from_client,
-                                                                       confirmation, update_database):
-            entry = {
-                'Detail': key,
-                'company_database': cdb_value,
-                'information_from_client': info.strip(),
-                'confirmation': matcher_value,
-                'update_database': udb_value
-            }
-            output_list.append(entry)
+        elif tab == 'fund_account_details':
+            output_list = []
+            entity_details = ['Source of Funds Entity', 'List of Beneficial Owners' ,'Funds of Beneficial Owners', 'Purpose of Account',
+                             'Trust Deed Information', 'Entity Asset', 'Entity Liabilities']
+            company_database = ['NA', 'Kamal Kumar,Jodie Pippas', 'NA','NA', 'NA', 'NA', 'NA']
+            information_from_client = ['NA','Kamal Kumar,Jodie Pippas', 'NA','NA', 'NA', 'NA', 'NA']
+            confirmation = ['-', 'verified','-','-','-','-','-']
+            update_database = ['NA', 'NA','NA', 'NA', 'NA', 'NA','NA']
+            for key, cdb_value, info, matcher_value, udb_value in zip(entity_details, company_database, information_from_client,
+                                                                           confirmation, update_database):
+                entry = {
+                    'Detail': key,
+                    'company_database': cdb_value,
+                    'information_from_client': info.strip(),
+                    'confirmation': matcher_value,
+                    'update_database': udb_value
+                }
+                output_list.append(entry)
 
-        output_dict = {"output": output_list}
-        return output_dict
+            output_dict = {"output": output_list}
+            return output_dict
 
-    if tab == 'personal_verification':
-        output_list = []
-        entity_details = ["Ultimate Beneficial Owner", "List of Directors","Chairman","President", "Vice President"]
-                          # "List of Legal Representatives", "List of Authorized Signatories(CSIC)",
-                          # "Settlor, Trustees name"]
-        company_database = ["Fuad El-Hibri","Jennifer Lynne Fox, Fiona Margaret Higginbotham, Richard Scott Lindahl","Fuad El-Hibri",
-                             "Lucas Gabriel", "Richard S. Lindahl"]#, "Paul Allen",
-                           # "NA", "NA"]
-        llm = ["Fuad El-Hibri","Jennifer Lynne Fox, Fiona Margaret Higginbotham, Richard Scott Lindahl","Fuad El-Hibri",
-                "Robert G. Kramer Sr.", "Richard S. Lindahl"]# "Paul Allen",
-               #"Data not available", "Data not available"]
-        source = ["Annual Meeting of Stockholders Report","Trade Register","Audited Annual Report", "Audited Annual Report", "Audited Annual Report"]
-                  #"Audited Annual Report", "NA", "NA"]
-        matcher_li = ["Matched","Matched","Matched", "Not Matched", "Matched"]# "Matched", "NA", "NA"]
-        update_database = ["Not Required","Not Required", "Not Required", "Required", "Not Required"] #"Not Required", "NA", "NA"]
+        elif tab == 'personal_verification':
+            output_list = []
+            entity_details = ["Ultimate Beneficial Owner", "List of Directors","Chairman","President", "Vice President"]
+            company_database = ["Fuad El-Hibri","Jennifer Lynne Fox, Fiona Margaret Higginbotham, Richard Scott Lindahl","Fuad El-Hibri",
+                                 "Lucas Gabriel", "Richard S. Lindahl"]
+            llm = ["Fuad El-Hibri","Jennifer Lynne Fox, Fiona Margaret Higginbotham, Richard Scott Lindahl","Fuad El-Hibri",
+                    "Robert G. Kramer Sr.", "Richard S. Lindahl"]
+            source = ["Annual Meeting of Stockholders Report","Trade Register","Audited Annual Report", "Audited Annual Report", "Audited Annual Report"]
+            matcher_li = ["Matched","Matched","Matched", "Not Matched", "Matched"]
+            update_database = ["Not Required","Not Required", "Not Required", "Required", "Not Required"]
 
-        for key, cdb_value, llm_value, source_value, matcher_value, udb_value in zip(entity_details, company_database,
-                                                                                     llm, source, matcher_li,
-                                                                                     update_database):
-            entry = {
-                'Detail': key,
-                'company_database': cdb_value,
-                'llm': llm_value.strip(),
-                'source': source_value,
-                'matcher_li': matcher_value,
-                'external_matcher_li': '-',
-                'update_database': udb_value
-            }
-            output_list.append(entry)
-        output_dict = {"output": output_list}
-        return output_dict
+            for key, cdb_value, llm_value, source_value, matcher_value, udb_value in zip(entity_details, company_database,
+                                                                                         llm, source, matcher_li,
+                                                                                         update_database):
+                entry = {
+                    'Detail': key,
+                    'company_database': cdb_value,
+                    'llm': llm_value.strip(),
+                    'source': source_value,
+                    'matcher_li': matcher_value,
+                    'external_matcher_li': '-',
+                    'update_database': udb_value
+                }
+                output_list.append(entry)
+            output_dict = {"output": output_list}
+            return output_dict
 
-    if tab == 'missing_attributes':
-        output_list = []
-        entity_details = ['Trustees name', 'Beneficial Owner', 'Nominee Share Holder',
-                         'Ultimate Parent Company', ]
-        company_database = ['NA', 'Ajay', 'NA', 'NA']
-        llm_output = ['Data not available', 'Amit Shah', 'Amrit Raj', 'Data not available']
+        elif tab == 'missing_attributes':
+            output_list = []
+            entity_details = ['Trustees name', 'Beneficial Owner', 'Nominee Share Holder',
+                             'Ultimate Parent Company', ]
+            company_database = ['NA', 'Ajay', 'NA', 'NA']
+            llm_output = ['Data not available', 'Amit Shah', 'Amrit Raj', 'Data not available']
 
-        for key, cdb_value, llm_value in zip(entity_details, company_database, llm_output):
-            entry = {
-                'Detail': key,
-                'company_database': cdb_value,
-                'llm': llm_value.strip()
-            }
-            output_list.append(entry)
-        output_dict = {"output": output_list}
-        return output_dict
-    if tab == 'update_attributes':
-        output_list = []
-        entity_details = ['Registered Office Address', 'President' ]#, 'Vice President']
-        company_database = ['49 Featherstone Street, London, United Kingdom, EC1Y8SY', 'Lucas Gabriel']# , 'Kevin Thomas']
-        llm_output = ['Building 3 Chiswick Park, 566 Chiswick High Road, London, England, W4 5YA', 'Robert G. Kramer Sr.']# , 'Richard S. Lindahl']
+            for key, cdb_value, llm_value in zip(entity_details, company_database, llm_output):
+                entry = {
+                    'Detail': key,
+                    'company_database': cdb_value,
+                    'llm': llm_value.strip()
+                }
+                output_list.append(entry)
+            output_dict = {"output": output_list}
+            return output_dict
+        
+        elif tab == 'update_attributes':
+            output_list = []
+            entity_details = ['Registered Address']
+            company_database = ['49 Featherstone Street, London, United Kingdom, EC1Y8SY ']
+            llm_output = ['Building 3 Chiswick Park, 566 Chiswick High Road, London, England, W4 5YA']
 
-        for key, cdb_value, llm_value in zip(entity_details, company_database, llm_output):
-            entry = {
-                'detail': key,
-                'previous_value': cdb_value,
-                'recent_value': llm_value.strip()
-            }
-            output_list.append(entry)
-        output_dict = {"output": output_list}
-        return output_dict
-
+            for key, cdb_value, llm_value in zip(entity_details, company_database, llm_output):
+                entry = {
+                    'detail': key,
+                    'previous_value': cdb_value,
+                    'recent_value': llm_value.strip()
+                }
+                output_list.append(entry)
+            output_dict = {"output": output_list}
+            return output_dict
+        
+        else:
+            # Default response if tab doesn't match any condition
+            return {"output": [], "error": f"Invalid tab parameter: {tab}"}
+    
+    except Exception as e:
+        print(f"Error in entity_details: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}, 500
 
 
 @app.route('/pep_screening', methods=['POST'])
@@ -1291,7 +1305,7 @@ def pep_screening():
 def entity_kyc_summary():
 
     ####---------Note: 7/feb/2024: Uncomment the logic and use openAI instead of AzureOpenAI
-    # openai.api_key = "32c8f6789c1649f588d42312a2d827d0"
+    # openai.api_key = os.getenv("OPENAI_API_KEY1")
     # openai.api_base = "https://bigaidea.openai.azure.com/"
     # openai.api_type = 'azure'
     # openai.api_version = '2022-12-01'
@@ -1344,7 +1358,7 @@ def entity_kyc_summary():
     # Company details
     # response['company_profile'] = "Emergent BioSolutions UK Ltd is a private limited company registered in the UK. It is a subsidiary of Emergent BioSolutions INC and operates in the biopharmaceutical industry."
 
-    # # Risk Assessments
+    # ###********* Risk Assessments - (Entity Level)
     # response['overall_risk_assesment'] = "Classified as Low Risk. The company’s business nature, geographical location, and lack of involvement in high-risk activities contribute to this assessment."
     # response['operational_risk'] = "Low. The company operates in the UK, a low-risk jurisdiction, and is not involved in high-risk industries such as oil or arms."
     # response['geographic_risk'] = "Low. Operations are concentrated in the UK and USA. While the parent company has a presence in Mexico, the impact on the UK entity is considered minimal."
@@ -1360,6 +1374,29 @@ def entity_kyc_summary():
     # # Ownership
     # response['ultimate_beneficial_owner'] = "Fuad El-Hibri"
     # response['ubo_determination'] = "Fuad El-Hibri is identified as the UBO based on a 10.70% shareholding, exceeding the 10% threshold."
+    
+    ##*********Workaround logic to make static response **********## (Individual KYC)
+    
+
+    ###********* Risk Assessments - (Individual Level)
+    response['customer_profile'] = "Customer identity and source of income easily identified and verified; expected transactions confirm to known profile."
+    response['overall_risk_assesment'] = "Classified as Low Risk. The customers income nature, geographical location, and lack of involvement in high-risk activities contribute to this assessment."
+    response['operational_risk'] = "Low, verified internal processes used for onboarding; no internal process failures"
+    response['geographic_risk'] = "Low. Customer resides in a stable, well-regulated jurisdiction (India). No links to high-risk or sanctioned geographies."
+    response['business_risk'] = "Low. Salaried employment is a stable and inherently low-risk business activity."
+    response['financial_risk'] = "Stable income, clear source of funds, and consistent financial behavior observed."
+
+    # Compliance and Screening
+    response['sanctions_related_activities'] = "No matches found on any global sanctions lists (RBI, ED, NIA, local lists)."
+    response['adverse_media_screening'] = "No credible negative information or derogatory media (e.g., fraud, legal issues) found in public sources."
+    response['pep_result'] = "	Not identified as a Politically Exposed Person (PEP), relative, or close associate."
+    response['sanaction_result'] = "Low Risk. No hits discovered in RBI, ED, NIA, or OFAC data sources."
+
+    # Ownership
+    response['ultimate_beneficial_owner'] = "100% owned by individual customer."
+    response['ubo_determination'] = "	Individual account with sole ownership; transparent and simple ownership structure. The beneficial owner was clearly identified and verified during CDD."
+    
+
 
     #response['risk_status'] = [
     #     'The overall risk associated with Emergent BioSolution UK LTd is low, as indicated by the Adverse News Screening, PEP Screening, and Sanction Screening results. The entity is not operating in any of the high-risk countries listed in the Money Laundering, Terrorist Financing and Transfer of Funds (Information on the Payer) Regulations 2017.However there is a medium risk because the subsidiaries of Emergent Biosolution UK operating in high risk countries like Emergent Devices Ltd (UAE) and Adapt Pharma Limited (Jordan).']
@@ -1409,7 +1446,7 @@ def judication_summary():
     #     print('***********************')
 
 
-    openai.api_key = "32c8f6789c1649f588d42312a2d827d0"
+    openai.api_key = os.getenv("OPENAI_API_KEY1")
     openai.api_base = "https://bigaidea.openai.azure.com/"
     openai.api_type = 'azure'
     openai.api_version = '2022-12-01'
@@ -1458,24 +1495,41 @@ def judication_summary():
 def media_pep_screen_result():
     req = request.get_json()
     if req['tab'] == 'media_screen':
-        name = ["Seamus Mulligan","Fuad El-Hibri", "Jennifer Lynne Fox", "Fiona Margaret Higginbotham",
-                "Richard Scott Lindahl", "Robert G.Kramer Sr.", "Richard S.Lindahl", "Paul Allen"]
+        name = ["Deepak Srivastava",
+                # "Fuad El-Hibri",
+                # "Jennifer Lynne Fox",
+                # "Fiona Margaret Higginbotham",
+                # "Richard Scott Lindahl",
+                # "Robert G.Kramer Sr.",
+                # "Richard S.Lindahl",
+                # "Paul Allen"
+                ]
         summary = [
             """No Negative News Found""",
-            """Fuad El-Hibri's Emergent BioSolutions held a near-monopoly on anthrax vaccines due to aggressive lobbying.However, the company faced significant setbacks in 2021 with the contamination of millions of Covid vaccine doses, raising concerns about mismanagement. Despite these issues, no evidence of illegal activities or personal misconduct by Fuad El-Hibri has been found.""",
-            """No Negative News Found""",
-            """No Negative News Found""",
-            """No Negative News Found""",
-            """No Negative News Found""",
-            """No Negative News Found""",
-            """No Negative News Found"""
+            # """Fuad El-Hibri's Emergent BioSolutions held a near-monopoly on anthrax vaccines due to aggressive lobbying.However, the company faced significant setbacks in 2021 with the contamination of millions of Covid vaccine doses, raising concerns about mismanagement. Despite these issues, no evidence of illegal activities or personal misconduct by Fuad El-Hibri has been found.""",
+            # """No Negative News Found""",
+            # """No Negative News Found""",
+            # """No Negative News Found""",
+            # """No Negative News Found""",
+            # """No Negative News Found""",
+            # """No Negative News Found"""
         ]
         sentimental_analysis = ["80% Positive, 0% Negative, 20% Neutral", "70% Positive,10% Negative,20% Neutral",
-                                "70% Positive, 5% Negative, 25% Neutral", "80% Positive, 0% Negative, 20% Neutral",
-                                "75% Positive, 0% Negative, 25% Neutral", "85% Positive, 0% Negative, 15% Neutral",
-                                "70% Positive, 5% Negative, 25% Neutral","80% Positive, 0% Negative, 20% Neutral"]
-        source = ['Website', 'Website', 'Website', 'Website', 'Website', 'Website', 'Website','Website']
-        media_screening_result = ['Low', 'Low', 'Low', 'Low', 'Low', 'Low', 'Low','Low']
+                                # "70% Positive, 5% Negative, 25% Neutral", "80% Positive, 0% Negative, 20% Neutral",
+                                # "75% Positive, 0% Negative, 25% Neutral", "85% Positive, 0% Negative, 15% Neutral",
+                                # "70% Positive, 5% Negative, 25% Neutral","80% Positive, 0% Negative, 20% Neutral"
+                                ]
+        source = ['Website',
+                #   'Website',
+                #   'Website',
+                #   'Website',
+                #   'Website',
+                #   'Website',
+                #   'Website',
+                #   'Website'
+                   ]
+        media_screening_result = ['Low']
+                                #   , 'Low', 'Low', 'Low', 'Low', 'Low', 'Low','Low']
         # pep_check_result = ['Low Risk','Low Risk','High Risk']
         output = []
         for i in range(0, len(name)):
@@ -1491,14 +1545,15 @@ def media_pep_screen_result():
         response['output'] = output
 
         return response
+    
     if req['tab'] == 'pep_screen':
-        name = ["Fuad El-Hibri", "Seamus Mulligan", "Jennifer Lynne Fox", "Fiona Margaret Higginbotham",
-                "Richard Scott Lindahl", "Robert G.Kramer Sr.", "Richard S.Lindahl", "Paul Allen"]
-        pep_check_summary = ['0 hits found', '0 hits found', '0 hits found', '0 hits found', '0 hits found',
-                             '0 hits found','0 hits found','0 hits found']
-        pep_check_result = ['Not Matched', 'Not Matched', 'Not Matched', 'Not Matched', 'Not Matched', 'Not Matched','Not Matched','Not Matched']
-        pep_check_status = ['Low', 'Low', 'Low', 'Low', 'Low', 'Low','Low','Low']
-        source = ['CIA Gov', 'CIA Gov', 'CIA Gov', 'CIA Gov', 'CIA Gov', 'CIA Gov','CIA Gov','CIA Gov']
+        name = ["Deepak Srivastava"] #, "Seamus Mulligan", "Jennifer Lynne Fox", "Fiona Margaret Higginbotham",
+                # "Richard Scott Lindahl", "Robert G.Kramer Sr.", "Richard S.Lindahl", "Paul Allen"]
+        pep_check_summary = ['0 hits found']#, '0 hits found', '0 hits found', '0 hits found', '0 hits found',
+                            # '0 hits found','0 hits found','0 hits found']
+        pep_check_result = ['Not Matched'] #, 'Not Matched', 'Not Matched', 'Not Matched', 'Not Matched', 'Not Matched','Not Matched','Not Matched']
+        pep_check_status = ['Low'] #, 'Low', 'Low', 'Low', 'Low', 'Low','Low','Low']
+        source = ['IND Gov'] #, 'CIA Gov', 'CIA Gov', 'CIA Gov', 'CIA Gov', 'CIA Gov','CIA Gov','CIA Gov']
         output = []
         for i in range(0, len(name)):
             temp_dict = dict()
@@ -1513,15 +1568,15 @@ def media_pep_screen_result():
         response['output'] = output
         return response
     if req['tab'] == 'sanaction_screen':
-        name = ["Fuad El-Hibri", "Seamus Mulligan", "Jennifer Lynne Fox", "Fiona Margaret Higginbotham",
-                "Richard Scott Lindahl", "Robert G.Kramer Sr.", "Richard S.Lindahl", "Paul Allen"]
-        sanaction_summary = ['0 hits found', '0 hits found', '0 hits found', '0 hits found', '0 hits found',
-                             '0 hits found', '0 hits found','0 hits found']
-        sanaction_result = ['Not Matched', 'Not Matched', 'Not Matched', 'Not Matched', 'Not Matched', 'Not Matched',
-                            'Not Matched', 'Not Matched']
-        sanaction_status = ['Low', 'Low', 'Low', 'Low', 'Low', 'Low', 'Low','Low']
-        source = ['UN,UK,EU,OFAC', 'UN,UK,EU,OFAC', 'UN,UK,EU,OFAC', 'UN,UK,EU,OFAC', 'UN,UK,EU,OFAC', 'UN,UK,EU,OFAC',
-                  'UN,UK,EU,OFAC','UN,UK,EU,OFAC']
+        name = ["Deepak Srivastava"] #, "Seamus Mulligan", "Jennifer Lynne Fox", "Fiona Margaret Higginbotham",
+                # "Richard Scott Lindahl", "Robert G.Kramer Sr.", "Richard S.Lindahl", "Paul Allen"]
+        sanaction_summary = ['0 hits found'] #, '0 hits found', '0 hits found', '0 hits found', '0 hits found',
+                             # '0 hits found', '0 hits found','0 hits found']
+        sanaction_result = ['Not Matched'] #, 'Not Matched', 'Not Matched', 'Not Matched', 'Not Matched', 'Not Matched',
+                            # 'Not Matched', 'Not Matched']
+        sanaction_status = ['Low'] #, 'Low', 'Low', 'Low', 'Low', 'Low', 'Low','Low']
+        source = ['RBI,ED,CBI,NIA'] #, 'UN,UK,EU,OFAC', 'UN,UK,EU,OFAC', 'UN,UK,EU,OFAC', 'UN,UK,EU,OFAC', 'UN,UK,EU,OFAC',
+                  # 'UN,UK,EU,OFAC','UN,UK,EU,OFAC']
         output = []
         for i in range(0, len(name)):
             temp_dict = dict()
@@ -1902,8 +1957,8 @@ def hierarchy_chart():
 @app.route("/street_view",methods=['POST'])
 def street_view():
     req = request.get_json()
-    
-    api_key = 'GOOGLE_API_KEY'
+    # api_key = os.getenv("GOOGLE_MAPS_API_KEY1")
+    api_key = os.getenv("GOOGLE_MAPS_API_KEY")
     gmaps = googlemaps.Client(key=api_key)
     response = dict()
     try:
