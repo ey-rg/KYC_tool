@@ -5,6 +5,7 @@ import re
 
 import cv2
 import googlemaps
+
 # load_qa_chain has been removed in newer versions of langchain
 # from langchain.chains import load_qa_chain
 # try:
@@ -85,8 +86,9 @@ import os
 import ftfy
 import skimage.filters as filters
 from email_send import email_send
-import google.generativeai as genai
-from langchain_google_genai import ChatGoogleGenerativeAI
+#import google.generativeai as genai
+#from langchain_google_genai import ChatGoogleGenerativeAI
+
 # LLMChain and StuffDocumentsChain have been moved/deprecated in newer langchain versions
 # try:
 #     from langchain.chains.llm import LLMChain
@@ -104,7 +106,7 @@ os.environ['CURL_CA_BUNDLE'] = ''
 os.environ['REQUESTS_CA_BUNDLE'] = ''
 key = os.getenv("GOOGLE_API_KEY")
 os.environ["GOOGLE_API_KEY"] = key
-genai.configure(api_key = key)
+# genai.configure(api_key = key)
 
 app = Flask(__name__)
 CORS(app)
@@ -1118,7 +1120,8 @@ def entity_details():
                                 "987654", "NA"]
             llm = ["Emergent Biosolutions UK Ltd", "Private Limited Business", "Active", "08717359",
                    "Emergent Biosolutions INC",
-                   "Building 3 Chiswick Park, 566 Chiswick High Road, London, England, W4 5YA", "Yes",
+                   "Plot N0. 443, House No. 204, Krishna nagar, Bhagwanpur, Varanasi Pincode - 221005", "Yes",
+                   #"Building 3 Chiswick Park, 566 Chiswick High Road, London, England, W4 5YA", "Yes",
                    "Data not Available", "Data not available", "Data not available"]
             source = ["Trade Register", "Trade Register", "Trade Register", "Trade Register", "Audited Annual Report",
                       "Trade Register", "Article of Association", "NA", "NA", "NA"]
@@ -1419,6 +1422,7 @@ def access_entity_risk():
     return response
 
 
+'''
 @app.route('/judication_summary', methods=['GET'])
 def judication_summary():
     df = pd.read_csv('Judication_summary_input.csv', encoding='ISO-8859-1')
@@ -1489,6 +1493,7 @@ def judication_summary():
     response = dict()
     response['output'] = summary
     return response
+'''
 
 ##Note : Method got changed to new design with post call,earlier it was get call
 @app.route('/media_pep_screen_result', methods=['POST'])
@@ -1505,7 +1510,7 @@ def media_pep_screen_result():
                 # "Paul Allen"
                 ]
         summary = [
-            """No Negative News Found""",
+            """The system flags an article about a person with the same name as the customer, but it's clearly a different individual with no matching details (e.g., different location, age, or profession).""",
             # """Fuad El-Hibri's Emergent BioSolutions held a near-monopoly on anthrax vaccines due to aggressive lobbying.However, the company faced significant setbacks in 2021 with the contamination of millions of Covid vaccine doses, raising concerns about mismanagement. Despite these issues, no evidence of illegal activities or personal misconduct by Fuad El-Hibri has been found.""",
             # """No Negative News Found""",
             # """No Negative News Found""",
