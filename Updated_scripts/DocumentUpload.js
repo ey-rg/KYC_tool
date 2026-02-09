@@ -1,3 +1,326 @@
+/**
+ * UNIFIED & PARAMETRIZED DOCUMENT UPLOAD
+ * ----------------------------------------------------
+ * Original UI output preserved
+ * Original functionality preserved (doc click, modal preview, comments, status badges)
+ * No duplicate Status columns
+ * Doc View column present & clickable (KYC table only)
+ * Single conditional switch for INDIA / INDONESIA
+ * No behavioral change to BasicTable or CustomModal
+ */
+
+import React, { useState, useMemo, useEffect } from 'react';
+import { Button, Badge, Form,DropdownButton,Dropdown,ButtonGroup  } from 'react-bootstrap';
+import BasicTable from '../Utils/BasicTable';
+import CustomModal from '../Utils/CustomModal';
+import documentUploadCss from './DocumentUpload.module.css';
+import { saveIcon, missingDocument, AutoEmail} from '../../assets/images';
+import axios from 'axios';
+import { messageService } from '../Utils/messageService';
+import LayoutLoading from '../Utils/LayoutLoading';
+
+/* ================= IMAGE IMPORTS ================= */
+import {
+  adhar_combined,
+  pan_card,
+  customer_passport,
+  electricity_bill,
+  indonesian_national_id,
+  indonesian_utility_bill,
+  indonesian_passport,
+  indonesian_masked_payslip
+} from '../../assets/images';
+
+/* ================= CASE CONFIG ================= */
+const CASE_CONFIG = {
+  INDIA: {
+    documents: {
+      NATIONAL_ID: { label: 'National ID', image: adhar_combined },
+      PAN: { label: 'PAN Card', image: pan_card },
+      PASSPORT: { label: 'Passport', image: customer_passport },
+      UTILITY: { label: 'Utility Bill', image: electricity_bill },
+      PAYSLIP: { label: 'Payslip', image: null }
+    },
+    kycAttributes: [
+      { attribute: 'Name', value: 'Deepak Srivastava', source: 'NATIONAL_ID', status: 'Matched', info: '', comments: '' },
+      { attribute: 'Name', value: 'Deepak Jind', source: 'PASSPORT', status: 'Not Matched', info: 'Name Mismatch', comments: '' },
+      { attribute: 'DOB', value: '30/08/1992', source: 'NATIONAL_ID', status: 'Matched', info: '', comments: '' },
+      { attribute: 'DOB', value: '22/04/1990', source: 'PASSPORT', status: 'Not Matched', info: 'DOB Mismatch', comments: '' },
+      { attribute: 'Address', value: 'Plot N0. 443, House No. 204, Krishna nagar, Bhagwanpur Pin-221005', source: 'NATIONAL_ID', status: 'Matched', info: '', comments: '' },
+      { attribute: "Father's Name", value: 'Rajendra Srivastava', source: 'NATIONAL_ID', status: 'Matched', info: '', comments: '' },
+      { attribute: 'Address', value: '', source: 'UTILITY',  status: 'Invalid', info: 'Blurred Document', comments: '' },
+      { attribute: 'Annual Income', value: '1,000,000 INR', source: 'PAN', status: 'Matched', info: '', comments: '' },
+      { attribute: 'Annual Income', value: '', source: 'PAYSLIP', status: 'Not Available', info: '', comments: '' }
+    ]
+  },
+
+  INDONESIA: {
+    documents: {
+      NATIONAL_ID: { label: 'National ID', image: indonesian_national_id },
+      PASSPORT: { label: 'Passport', image: indonesian_passport },
+      UTILITY: { label: 'Utility Bill', image: indonesian_utility_bill },
+      PAYSLIP: { label: 'Payslip', image: indonesian_masked_payslip }
+    },
+    kycAttributes: [
+      { attribute: 'Name', value: 'Aisyah Rahmani', source: 'NATIONAL_ID', status: 'Matched', info: '', comments: '' },
+      { attribute: 'DOB', value: '23/06/1979', source: 'PASSPORT', status: 'Matched', info: '', comments: '' },
+      { attribute: 'Address', value: '100 Pasir Panjang Road, #03-01 The Beacon, Singapore 118520', source: 'UTILITY', status: 'Matched', info: '', comments: '' },
+      { attribute: 'Annual Income', value: '135,500,000 IDR', source: 'PAYSLIP', status: 'Matched', info: '', comments: '' }
+    ]
+  }
+};
+
+/* ================= COMPONENT (Update case type)================= */
+function DocumentUpload({ caseType = 'INDONESIA', showDocs = false }) {
+  const CASE = CASE_CONFIG[caseType];
+  const initialData = [
+      {items: 'Adhar Card', status:"Available", comments: ''},
+      {items: 'PAN Card', status: "Available", comments: ''},
+      {items: 'Passport', status: "Not Matched"},
+      {items: 'Payslip', status: "Not Available"},
+      {items: 'Utility Bill', status: "Not Valid"}
+    ];
+
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [showMissDocs, setShowMissDocs] = useState(false);
+
+  const [data, setData] = useState(initialData);
+  const [kycData, setKycData] = useState(
+    CASE.kycAttributes.map(item => ({
+      ...item,
+      docView: CASE.documents[item.source]?.image || null,
+      comments: ''
+    }))
+  );
+
+  const documentTableData = useMemo(
+    () =>
+      Object.values(CASE.documents).map(doc => ({
+        items: doc.label,
+        status: doc.image ? 'Available' : 'Not Available',
+        comments: ''
+      })),
+    [CASE]
+  );
+
+  const handleImageClick = (img) => {
+    setSelectedImage(img);
+    setShowImageModal(true);
+  };
+
+  /* ========== DOCUMENT TABLE (ORIGINAL FORMAT) ========== */
+  const documentHeaders = [
+    {
+      Header: 'Status',
+      accessor: 'status',
+      Cell: ({ value }) => (
+        <Badge bg={value === 'Available' ? 'success' : 'secondary'}>
+          {value}
+        </Badge>
+      )
+    },
+    
+  ];
+  
+  data.map(item => {
+    return null;
+  })
+
+  // derive missing documents list from current data
+  const missDocs = data.filter(item => item.status !== 'Available').map(d => d.items);
+
+  useEffect(() => {
+    if (typeof showDocs !== 'undefined' && showDocs) {
+      setShowMissDocs(showDocs);
+    }
+  }, [/* showDocs prop may be passed externally */]);
+
+  const missDocsHandler = () => {
+      setShowMissDocs(true)
+  }
+
+  /* ========== KYC ATTRIBUTE TABLE (DOC VIEW ENABLED) ========== */
+  const kycHeaders = [
+    { Header: 'KYC Attribute', accessor: 'attribute' },
+    { Header: 'Value', accessor: 'value' },
+    {
+      Header: 'Source',
+      accessor: 'source',
+      Cell: ({ value }) => CASE.documents[value]?.label || value
+    },
+    {
+      Header: 'Doc View',
+      accessor: 'docView',
+      Cell: ({ value }) =>
+        value ? (
+          <Button variant="link" size="sm" onClick={() => handleImageClick(value)}>
+            View
+          </Button>
+        ) : (
+          '-'
+        )
+    },
+    {
+      Header: 'Status',
+      accessor: 'status',
+      Cell: ({ value }) => (
+        <Badge bg={value === 'Matched' ? 'success' : 'danger'}>
+          {value}
+        </Badge>
+      )
+    },
+    { Header: 'Info', accessor: 'info' },
+    {
+      Header: "Reviewer's Co.",
+      accessor: 'comments',
+      Cell: ({ value, row }) => (
+        <Form.Control
+          className={documentUploadCss.inputTextArea}
+          value={value}
+          onChange={(e) => {
+            const updated = [...kycData];
+            updated[row.index].comments = e.target.value;
+            setKycData(updated);
+          }}
+        />
+      )
+    }
+  ];
+
+  const sendMailHandler = (eventKey) => {
+      setLoading(true)
+      if (eventKey === 1) {
+          //axios.post(`${process.env.REACT_APP_API_BASE_URL}/send_mail_with_attachment_non_compliant`)
+          axios.post(`${process.env.REACT_APP_API_BASE_URL}/email_RFI`)
+          .then(response => {
+              setLoading(false)
+              messageService.sendMessage({variant: "success", message: "Mail has been Sent Successfully."})
+          })
+          .catch(error => {
+              setLoading(false)
+              messageService.sendMessage({variant: "danger", message: "server error"});
+          })
+      } else {
+      //axios.post(`${process.env.REACT_APP_API_BASE_URL}/send_mail_non_compliant`)
+      axios.post(`${process.env.REACT_APP_API_BASE_URL}/email_EDD`)
+      .then(response => {
+          setLoading(false)
+          messageService.sendMessage({variant: "success", message: "Mail has been Sent Successfully."})
+      })
+      .catch(error => {
+          setLoading(false)
+          messageService.sendMessage({variant: "danger", message: "server error"});
+      })
+    }  
+  }
+  /* ================= RENDER ================= */
+  // return (
+  //   <>
+  //     <div className={documentUploadCss.innerDiv}>
+  //       <BasicTable availableColumns={kycHeaders} data={kycData} />
+  //     </div>
+  //     {showImageModal && (
+  //       <CustomModal
+  //         modalHeader="Document Preview"
+  //         onHideHandler={() => setShowImageModal(false)}
+  //       >
+  //         <img
+  //           src={selectedImage}
+  //           alt="Preview"
+  //           style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+  //         />
+  //       </CustomModal>
+        
+  //     )}
+  //   </>
+  // );
+
+    return (
+    <>
+      <div>
+        <span style={{ margin: '10px 5px 0px 0px', float: 'right' }}>
+          <img src={missingDocument} alt="missingDocument" style={{ width: '45px' }} />
+          <Button
+            className={`${documentUploadCss.documentList} backgroundDanger`}
+            variant="danger"
+            onClick={missDocsHandler}
+          >
+            Missing Documents
+          </Button>
+
+          <img src={AutoEmail} alt="AutoEmail" style={{ width: '36px', marginRight: '4px' }} />
+
+          <DropdownButton
+            as={ButtonGroup}
+            title="Customer Outreach"
+            className={`${documentUploadCss.documentDropdown} backgroundDanger`}
+            variant="none"
+            id="bg-nested-dropdown"
+          >
+            <Dropdown.Item eventKey="1" onClick={() => sendMailHandler(1)}>
+              RFI
+            </Dropdown.Item>
+            <Dropdown.Item eventKey="2" onClick={() => sendMailHandler(2)}>
+              EDD
+            </Dropdown.Item>
+          </DropdownButton>
+        </span>
+      </div>
+
+      <div className={documentUploadCss.innerDiv} style={{ marginTop: '20px' }}>
+        <BasicTable availableColumns={kycHeaders} data={kycData} />
+      </div>
+
+      {showImageModal && (
+        <CustomModal
+          modalHeader="Document Preview"
+          onHideHandler={() => setShowImageModal(false)}
+        >
+          <img
+            src={selectedImage}
+            alt="Preview"
+            style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+          />
+        </CustomModal>
+      )}
+
+      {showMissDocs && (
+        <CustomModal
+          modalHeader="Missing Documents"
+          onHideHandler={() => setShowMissDocs(false)}
+        >
+          {missDocs.length ? (
+            <ul>
+              {missDocs.map(doc => (
+                <li key={doc}>{doc}</li>
+              ))}
+            </ul>
+          ) : (
+            <p
+              style={{
+                fontFamily: 'var(--poppinsRegular)',
+                fontSize: 'var(--fontSizeSmall)'
+              }}
+            >
+              There are no missing documents
+            </p>
+          )}
+        </CustomModal>
+      )}
+
+      {loading && <LayoutLoading message="Loading" />}
+    </>
+  );
+}
+
+export default DocumentUpload;
+
+
+// ============================================================================================
+
+
 // import React, { useState, useEffect } from 'react';
 // import documentUploadCss from './DocumentUpload.module.css';
 // import { Button, Form, Badge,DropdownButton,Dropdown,ButtonGroup } from 'react-bootstrap';
@@ -337,197 +660,3 @@
 
 // export default connect(mapStateToProp, null)(DocumentUpload)
 
-
-
-
-
-
-
-
-
-
-
-// ============================================================================================
-
-
-/**
- * ✅ UNIFIED & PARAMETRIZED DOCUMENT UPLOAD
- * ----------------------------------------------------
- * ✔ Original UI output preserved
- * ✔ Original functionality preserved (doc click, modal preview, comments, status badges)
- * ✔ No duplicate Status columns
- * ✔ Doc View column present & clickable (KYC table only)
- * ✔ Single conditional switch for INDIA / INDONESIA
- * ✔ No behavioral change to BasicTable or CustomModal
- */
-
-import React, { useState, useMemo } from 'react';
-import { Button, Badge, Form } from 'react-bootstrap';
-import BasicTable from '../Utils/BasicTable';
-import CustomModal from '../Utils/CustomModal';
-import documentUploadCss from './DocumentUpload.module.css';
-
-/* ================= IMAGE IMPORTS ================= */
-import {
-  adhar_combined,
-  pan_card,
-  customer_passport,
-  electricity_bill,
-  indonesian_national_id,
-  indonesian_utility_bill,
-  indonesian_passport,
-  indonesian_masked_payslip
-} from '../../assets/images';
-
-/* ================= CASE CONFIG ================= */
-const CASE_CONFIG = {
-  INDIA: {
-    documents: {
-      AADHAR: { label: 'Adhar Card', image: adhar_combined },
-      PAN: { label: 'PAN Card', image: pan_card },
-      PASSPORT: { label: 'Passport', image: customer_passport },
-      UTILITY: { label: 'Utility Bill', image: electricity_bill },
-      PAYSLIP: { label: 'Payslip', image: null }
-    },
-    kycAttributes: [
-      { attribute: 'Name', value: 'Deepak Srivastava', source: 'AADHAR', status: 'Matched' },
-      { attribute: 'DOB', value: '30/08/1992', source: 'PASSPORT', status: 'Not Matched' },
-      { attribute: 'Address', value: 'Varanasi, India', source: 'UTILITY', status: 'Invalid' }
-    ]
-  },
-
-  INDONESIA: {
-    documents: {
-      NATIONAL_ID: { label: 'National ID', image: indonesian_national_id },
-      PASSPORT: { label: 'Passport', image: indonesian_passport },
-      UTILITY: { label: 'Utility Bill', image: indonesian_utility_bill },
-      PAYSLIP: { label: 'Payslip', image: indonesian_masked_payslip }
-    },
-    kycAttributes: [
-      { attribute: 'Name', value: 'Aisyah Rahmani', source: 'NATIONAL_ID', status: 'Matched' },
-      { attribute: 'DOB', value: '23/06/1979', source: 'PASSPORT', status: 'Matched' },
-      { attribute: 'Address', value: 'Singapore 118520', source: 'UTILITY', status: 'Matched' },
-      { attribute: 'Annual Income', value: '135,500,000 IDR', source: 'PAYSLIP', status: 'Matched' }
-    ]
-  }
-};
-
-/* ================= COMPONENT ================= */
-function DocumentUpload({ caseType = 'INDIA' }) {
-  const CASE = CASE_CONFIG[caseType];
-
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [selectedImage, setSelectedImage] = useState(null);
-
-  const [kycData, setKycData] = useState(
-    CASE.kycAttributes.map(item => ({
-      ...item,
-      docView: CASE.documents[item.source]?.image || null,
-      comments: ''
-    }))
-  );
-
-  const documentTableData = useMemo(
-    () =>
-      Object.values(CASE.documents).map(doc => ({
-        items: doc.label,
-        status: doc.image ? 'Available' : 'Not Available',
-        comments: ''
-      })),
-    [CASE]
-  );
-
-  const handleImageClick = (img) => {
-    setSelectedImage(img);
-    setShowImageModal(true);
-  };
-
-  /* ========== DOCUMENT TABLE (ORIGINAL FORMAT) ========== */
-  const documentHeaders = [
-    {
-      Header: 'Status',
-      accessor: 'status',
-      Cell: ({ value }) => (
-        <Badge bg={value === 'Available' ? 'success' : 'secondary'}>
-          {value}
-        </Badge>
-      )
-    },
-    
-  ];
-
-  /* ========== KYC ATTRIBUTE TABLE (DOC VIEW ENABLED) ========== */
-  const kycHeaders = [
-    { Header: 'KYC Attribute', accessor: 'attribute' },
-    { Header: 'Value', accessor: 'value' },
-    {
-      Header: 'Source',
-      accessor: 'source',
-      Cell: ({ value }) => CASE.documents[value]?.label || value
-    },
-    {
-      Header: 'Doc View',
-      accessor: 'docView',
-      Cell: ({ value }) =>
-        value ? (
-          <Button variant="link" size="sm" onClick={() => handleImageClick(value)}>
-            View
-          </Button>
-        ) : (
-          '-'
-        )
-    },
-    {
-      Header: 'Status',
-      accessor: 'status',
-      Cell: ({ value }) => (
-        <Badge bg={value === 'Matched' ? 'success' : 'danger'}>
-          {value}
-        </Badge>
-      )
-    },
-    {
-      Header: "Reviewer's Co.",
-      accessor: 'comments',
-      Cell: ({ value, row }) => (
-        <Form.Control
-          className={documentUploadCss.inputTextArea}
-          value={value}
-          onChange={(e) => {
-            const updated = [...kycData];
-            updated[row.index].comments = e.target.value;
-            setKycData(updated);
-          }}
-        />
-      )
-    }
-  ];
-
-  /* ================= RENDER ================= */
-  return (
-    <>
-      <div className={documentUploadCss.innerDiv}>
-        <BasicTable availableColumns={kycHeaders} data={kycData} />
-      </div>
-
-      {/* <div className={documentUploadCss.innerDiv}>
-        <BasicTable availableColumns={documentHeaders} data={documentTableData} />
-      </div> */}
-
-      {showImageModal && (
-        <CustomModal
-          modalHeader="Document Preview"
-          onHideHandler={() => setShowImageModal(false)}
-        >
-          <img
-            src={selectedImage}
-            alt="Preview"
-            style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain' }}
-          />
-        </CustomModal>
-      )}
-    </>
-  );
-}
-
-export default DocumentUpload;
