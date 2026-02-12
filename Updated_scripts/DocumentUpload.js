@@ -18,6 +18,7 @@ import { saveIcon, missingDocument, AutoEmail} from '../../assets/images';
 import axios from 'axios';
 import { messageService } from '../Utils/messageService';
 import LayoutLoading from '../Utils/LayoutLoading';
+import { HOME_CASE_CONFIG } from '../Utils/homeCaseConfig';
 
 /* ================= IMAGE IMPORTS ================= */
 import {
@@ -32,7 +33,7 @@ import {
 } from '../../assets/images';
 
 /* ================= CASE CONFIG ================= */
-const CASE_CONFIG = {
+const DOCUMENTS_CONFIG = {
   INDIA: {
     documents: {
       NATIONAL_ID: { label: 'National ID', image: adhar_combined },
@@ -41,17 +42,17 @@ const CASE_CONFIG = {
       UTILITY: { label: 'Utility Bill', image: electricity_bill },
       PAYSLIP: { label: 'Payslip', image: null }
     },
-    kycAttributes: [
-      { attribute: 'Name', value: 'Deepak Srivastava', source: 'NATIONAL_ID', status: 'Matched', info: '', comments: '' },
-      { attribute: 'Name', value: 'Deepak Jind', source: 'PASSPORT', status: 'Not Matched', info: 'Name Mismatch', comments: '' },
-      { attribute: 'DOB', value: '30/08/1992', source: 'NATIONAL_ID', status: 'Matched', info: '', comments: '' },
-      { attribute: 'DOB', value: '22/04/1990', source: 'PASSPORT', status: 'Not Matched', info: 'DOB Mismatch', comments: '' },
-      { attribute: 'Address', value: 'Plot N0. 443, House No. 204, Krishna nagar, Bhagwanpur Pin-221005', source: 'NATIONAL_ID', status: 'Matched', info: '', comments: '' },
-      { attribute: "Father's Name", value: 'Rajendra Srivastava', source: 'NATIONAL_ID', status: 'Matched', info: '', comments: '' },
-      { attribute: 'Address', value: '', source: 'UTILITY',  status: 'Invalid', info: 'Blurred Document', comments: '' },
-      { attribute: 'Annual Income', value: '1,000,000 INR', source: 'PAN', status: 'Matched', info: '', comments: '' },
-      { attribute: 'Annual Income', value: '', source: 'PAYSLIP', status: 'Not Available', info: '', comments: '' }
-    ]
+  //   kycAttributes: [
+  //     { attribute: 'Name', value: 'Deepak Srivastava', source: 'NATIONAL_ID', status: 'Matched', info: '', comments: '' },
+  //     { attribute: 'Name', value: 'Deepak Jind', source: 'PASSPORT', status: 'Not Matched', info: 'Name Mismatch', comments: '' },
+  //     { attribute: 'DOB', value: '30/08/1992', source: 'NATIONAL_ID', status: 'Matched', info: '', comments: '' },
+  //     { attribute: 'DOB', value: '22/04/1990', source: 'PASSPORT', status: 'Not Matched', info: 'DOB Mismatch', comments: '' },
+  //     { attribute: 'Address', value: 'Plot N0. 443, House No. 204, Krishna nagar, Bhagwanpur Pin-221005', source: 'NATIONAL_ID', status: 'Matched', info: '', comments: '' },
+  //     { attribute: "Father's Name", value: 'Rajendra Srivastava', source: 'NATIONAL_ID', status: 'Matched', info: '', comments: '' },
+  //     { attribute: 'Address', value: '', source: 'UTILITY',  status: 'Invalid', info: 'Blurred Document', comments: '' },
+  //     { attribute: 'Annual Income', value: '1,000,000 INR', source: 'PAN', status: 'Matched', info: '', comments: '' },
+  //     { attribute: 'Annual Income', value: '', source: 'PAYSLIP', status: 'Not Available', info: '', comments: '' }
+  //   ]
   },
 
   INDONESIA: {
@@ -61,24 +62,37 @@ const CASE_CONFIG = {
       UTILITY: { label: 'Utility Bill', image: indonesian_utility_bill },
       PAYSLIP: { label: 'Payslip', image: indonesian_masked_payslip }
     },
-    kycAttributes: [
-      { attribute: 'Name', value: 'Aisyah Rahmani', source: 'NATIONAL_ID', status: 'Matched', info: '', comments: '' },
-      { attribute: 'DOB', value: '23/06/1979', source: 'PASSPORT', status: 'Matched', info: '', comments: '' },
-      { attribute: 'Address', value: '100 Pasir Panjang Road, #03-01 The Beacon, Singapore 118520', source: 'UTILITY', status: 'Matched', info: '', comments: '' },
-      { attribute: 'Annual Income', value: '135,500,000 IDR', source: 'PAYSLIP', status: 'Matched', info: '', comments: '' }
-    ]
+    // kycAttributes: [
+    //   { attribute: 'Name', value: 'Aisyah Rahmani', source: 'NATIONAL_ID', status: 'Matched', info: '', comments: '' },
+    //   { attribute: 'DOB', value: '23/06/1979', source: 'PASSPORT', status: 'Matched', info: '', comments: '' },
+    //   { attribute: 'Address', value: '100 Pasir Panjang Road, #03-01 The Beacon, Singapore 118520', source: 'UTILITY', status: 'Matched', info: '', comments: '' },
+    //   { attribute: 'Annual Income', value: '135,500,000 IDR', source: 'PAYSLIP', status: 'Matched', info: '', comments: '' }
+    // ]
   }
 };
 
 /* ================= COMPONENT (Update case type)================= */
 function DocumentUpload({ caseType = 'INDONESIA', showDocs = false }) {
-  const CASE = CASE_CONFIG[caseType];
+  const DOCUMENTS =
+    DOCUMENTS_CONFIG[caseType]?.documents || {};
+
+  const KYC_ATTRIBUTES =
+    HOME_CASE_CONFIG[caseType]?.kycAttributes || [];
+
+  const [kycData, setKycData] = useState(
+    KYC_ATTRIBUTES.map(item => ({
+      ...item,
+      docView: DOCUMENTS?.[item.source]?.image || null,
+      comments: item.comments || ''
+    }))
+  );
+    
   const initialData = [
       {items: 'Adhar Card', status:"Available", comments: ''},
       {items: 'PAN Card', status: "Available", comments: ''},
-      {items: 'Passport', status: "Not Matched"},
-      {items: 'Payslip', status: "Not Available"},
-      {items: 'Utility Bill', status: "Not Valid"}
+      {items: 'Passport', status: "Available"},
+      {items: 'Payslip', status: "Available"},
+      {items: 'Utility Bill', status: "Available"}
     ];
 
   const [showImageModal, setShowImageModal] = useState(false);
@@ -87,22 +101,23 @@ function DocumentUpload({ caseType = 'INDONESIA', showDocs = false }) {
   const [showMissDocs, setShowMissDocs] = useState(false);
 
   const [data, setData] = useState(initialData);
-  const [kycData, setKycData] = useState(
-    CASE.kycAttributes.map(item => ({
-      ...item,
-      docView: CASE.documents[item.source]?.image || null,
-      comments: ''
-    }))
-  );
+  // const [kycData, setKycData] = useState(
+  //   CASE.kycAttributes.map(item => ({
+  //     ...item,
+  //     docView: CASE.documents[item.source]?.image || null,
+  //     comments: ''
+  //   }))
+  // );
+
 
   const documentTableData = useMemo(
     () =>
-      Object.values(CASE.documents).map(doc => ({
+      Object.values(DOCUMENTS).map(doc => ({
         items: doc.label,
         status: doc.image ? 'Available' : 'Not Available',
         comments: ''
       })),
-    [CASE]
+    [DOCUMENTS]
   );
 
   const handleImageClick = (img) => {
@@ -145,10 +160,15 @@ function DocumentUpload({ caseType = 'INDONESIA', showDocs = false }) {
   const kycHeaders = [
     { Header: 'KYC Attribute', accessor: 'attribute' },
     { Header: 'Value', accessor: 'value' },
+    // {
+    //   Header: 'Source',
+    //   accessor: 'source',
+    //   Cell: ({ value }) => CASE.documents[value]?.label || value
+    // },
     {
       Header: 'Source',
       accessor: 'source',
-      Cell: ({ value }) => CASE.documents[value]?.label || value
+      Cell: ({ value }) => DOCUMENTS?.[value]?.label || value
     },
     {
       Header: 'Doc View',
