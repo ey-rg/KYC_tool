@@ -1,8 +1,9 @@
 #This Third version is created for emergent solution new entity
 
+import os
 import random
 import re
-from flask import send_file, jsonify, request, current_app
+from flask import json, send_file, jsonify, request, current_app
 import cv2
 import googlemaps
 
@@ -26,69 +27,8 @@ import numpy as np
 # defer importing heavy ML face-compare module until it's needed
 from flask import Flask, request,send_file,jsonify
 from flask_cors import CORS
-from reportlab.pdfgen import canvas
-import base64
-import io
-import openai
-from googlesearch import search
-from bs4 import BeautifulSoup
-from urllib.request import urlopen
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
-from reportlab.platypus import Spacer
-from reportlab.lib.pagesizes import letter, landscape
-from reportlab.lib import colors
-from reportlab.platypus.flowables import KeepInFrame
-import pytesseract
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-# ...existing code...
-from passporteye import read_mrz
+import textwrap
 from datetime import datetime
-import docx
-import json
-
-# Load environment variables from the .env file
-import os
-from dotenv import load_dotenv
-load_dotenv()
-
-# load_summarize_chain has been deprecated in newer langchain versions
-# try:
-#     from langchain.chains.summarize import load_summarize_chain
-# except ImportError:
-#     from langchain_community.chains.summarize import load_summarize_chain
-
-
-# try:
-#     from langchain.text_splitter import CharacterTextSplitter
-# except ImportError:
-#     from langchain_text_splitters import CharacterTextSplitter
-# try:
-#     from langchain.text_splitter import RecursiveCharacterTextSplitter
-# except ImportError:
-#     from langchain_text_splitters import RecursiveCharacterTextSplitter
-# try:
-#     from langchain.prompts import PromptTemplate
-# except ImportError:
-#     from langchain_core.prompts import PromptTemplate
-
-from pdfminer.high_level import extract_text
-from io import BytesIO
-import mysql.connector
-from fuzzywuzzy import fuzz
-from flask_mail import Mail, Message
-import os
-import ftfy
-import skimage.filters as filters
-from email_send import email_send
-#import google.generativeai as genai
-#from langchain_google_genai import ChatGoogleGenerativeAI
-
-# LLMChain and StuffDocumentsChain have been moved/deprecated in newer langchain versions
-# try:
-#     from langchain.chains.llm import LLMChain
-# except ImportError:
 #     from langchain_community.chains.llm import LLMChain
 # try:
 #     from langchain.chains.combine_documents.stuff import StuffDocumentsChain
@@ -96,15 +36,36 @@ from email_send import email_send
 #     from langchain_community.chains.combine_documents.stuff import StuffDocumentsChain
 import time
 
-with open("case_summary_config.json") as f:
-    CONFIG = json.load(f)
-    # print(CONFIG)
+# Additional imports that may be required at runtime
+import base64
+import io
+from io import BytesIO
+import mysql.connector
+from flask_mail import Mail, Message
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+from email_send import email_send
 
-os.environ['OPENAI_API_KEY'] = os.getenv("OPENAI_API_KEY")
+# Load configuration with a safe fallback if the file is missing
+try:
+    with open("case_summary_config.json") as f:
+        CONFIG = json.load(f)
+except FileNotFoundError:
+    CONFIG = {}
+    print("Warning: case_summary_config.json not found — using default CONFIG={}")
+
+# Set optional environment variables only when available
+openai_key = os.getenv("OPENAI_API_KEY")
+if openai_key:
+    os.environ['OPENAI_API_KEY'] = openai_key
+# Ensure requests/openssl don't fail on some platforms
 os.environ['CURL_CA_BUNDLE'] = ''
 os.environ['REQUESTS_CA_BUNDLE'] = ''
 key = os.getenv("GOOGLE_API_KEY")
-os.environ["GOOGLE_API_KEY"] = key
+if key:
+    os.environ["GOOGLE_API_KEY"] = key
 # genai.configure(api_key = key)
 
 app = Flask(__name__)
@@ -206,55 +167,55 @@ def create_pdf_with_list(output_filename,heading,item_list):
         y -= paragraph.height + 10
     c.save()
 
-def fetch_and_scrape(url,keyword):
-    try:
-        search_kwd = keyword
-        page = urlopen(url)
-        html = page.read().decode("utf-8")
-        soup = BeautifulSoup(html, "html.parser")
-        p_text = soup.select('p')
-        main_text = ''
-        for line in p_text:
-            main_text = main_text + line.text
-        #print(f'main_content:{main_text}')
+# def fetch_and_scrape(url,keyword):
+#     try:
+#         search_kwd = keyword
+#         page = urlopen(url)
+#         html = page.read().decode("utf-8")
+#         soup = BeautifulSoup(html, "html.parser")
+#         p_text = soup.select('p')
+#         main_text = ''
+#         for line in p_text:
+#             main_text = main_text + line.text
+#         #print(f'main_content:{main_text}')
 
-        # text_splitter = CharacterTextSplitter(chunk_overlap=0, chunk_size=10)
-        # chunk_text = text_splitter.split_text(main_text)
-        chunk_text = [main_text[i:i + 3000] for i in range(0, len(main_text), 3000)]
-        #print(len(chunk_text),type(chunk_text))
-        relevant_sentences = []
-        for i in chunk_text:
-            relevant_sentences.extend(filter_sentences_with_gpt3(i,search_kwd))
-        cleaned_content = '\n'.join(relevant_sentences)
-        #print(f'cleaned_content:{cleaned_content}')
-        return cleaned_content
+#         # text_splitter = CharacterTextSplitter(chunk_overlap=0, chunk_size=10)
+#         # chunk_text = text_splitter.split_text(main_text)
+#         chunk_text = [main_text[i:i + 3000] for i in range(0, len(main_text), 3000)]
+#         #print(len(chunk_text),type(chunk_text))
+#         relevant_sentences = []
+#         for i in chunk_text:
+#             relevant_sentences.extend(filter_sentences_with_gpt3(i,search_kwd))
+#         cleaned_content = '\n'.join(relevant_sentences)
+#         #print(f'cleaned_content:{cleaned_content}')
+#         return cleaned_content
 
 
-    except Exception as e:
-        print(f"Error while fetching/scraping {url}: {str(e)}")
-        return None
+#     except Exception as e:
+#         print(f"Error while fetching/scraping {url}: {str(e)}")
+#         return None
 
-def filter_sentences_with_gpt3(content,search_query):
-    try:
-        openai.api_key = os.getenv("OPENAI_API_KEY1")
-        openai.api_base = "https://bigaidea.openai.azure.com/"
-        openai.api_type = 'azure'
-        openai.api_version = '2022-12-01'
-        engine = 'deployment-8c300b6d6ee747668b102e938fe54f70'
-        prompt = f"Filter the relevant sentences from the following content: \n\n{content}\n\nSearch Query: {search_query}\n\nRelevant Sentences:\n"
-        response = openai.Completion.create(
-            model="text-davinci-003",
-            prompt=prompt,
-            max_tokens=500,
-            temperature=0,
-            engine=engine
-        )
-        # Extract and return the relevant sentences
-        relevant_sentences = response.choices[0].text.strip().split('\n')
-        return relevant_sentences
-    except Exception as e:
-        print(f"Error while filtering sentences with GPT-3: {str(e)}")
-        return []
+# def filter_sentences_with_gpt3(content,search_query):
+#     try:
+#         openai.api_key = os.getenv("OPENAI_API_KEY1")
+#         openai.api_base = "https://bigaidea.openai.azure.com/"
+#         openai.api_type = 'azure'
+#         openai.api_version = '2022-12-01'
+#         engine = 'deployment-8c300b6d6ee747668b102e938fe54f70'
+#         prompt = f"Filter the relevant sentences from the following content: \n\n{content}\n\nSearch Query: {search_query}\n\nRelevant Sentences:\n"
+#         response = openai.Completion.create(
+#             model="text-davinci-003",
+#             prompt=prompt,
+#             max_tokens=500,
+#             temperature=0,
+#             engine=engine
+#         )
+#         # Extract and return the relevant sentences
+#         relevant_sentences = response.choices[0].text.strip().split('\n')
+#         return relevant_sentences
+#     except Exception as e:
+#         print(f"Error while filtering sentences with GPT-3: {str(e)}")
+#         return []
 
 def sentence_parsing(filename):
     import spacy
@@ -1133,7 +1094,7 @@ def entity_details():
             output_list = []
             entity_details = ['Registered Address']
             company_database = ['49 Featherstone Street, London, United Kingdom, EC1Y8SY ']
-            llm_output = ['100 Pasir Panjang Road, #03-01 The Beacon, Singapore 118520'] #['Plot N0. 443, House No. 204, Krishna nagar, Bhagwanpur, Varanasi Pincode - 221005']
+            llm_output = ['Sembiran Street Kangin Hamlet Sembiran Village, Tejakula District, Buleleng Regency, Bali 81173'] #['Plot N0. 443, House No. 204, Krishna nagar, Bhagwanpur, Varanasi Pincode - 221005']
 
             for key, cdb_value, llm_value in zip(entity_details, company_database, llm_output):
                 entry = {
@@ -1285,18 +1246,20 @@ def access_entity_risk():
 ##Note : Method got changed to new design with post call,earlier it was get call
 @app.route('/media_pep_screen_result', methods=['POST'])
 def media_pep_screen_result():
-    req = request.get_json()
+    req = request.get_json(silent=True)
     if req['tab'] == 'media_screen':
         if case == "INDONESIA":
-            name = ["Aisyah Rahmani","Aisyah Rahmani"]
+            name = ["Wayan Koster S","Wayan Koster S"]
             # summary = [
             #     """[ Source 1 - News] : During adverse media screening, an article from a reputable news source was flagged due to a name match. Comprehensive review confirmed the article pertains to a separate individual, as evidenced by discrepancies in geographic location, age, and occupation. The alert was reasonably discounted as a false positive.""",
             #     """[ Source 2 - Social Media] : Source validation and identity verification were conducted following the media alert. No corroborating evidence links the customer to the subject of the article. The customer’s risk profile remains unchanged."""
             #         ]
-            summary = [
-                """[ Source 1 - News] : The adverse media screening identified several articles referencing the individual; however, the content was unrelated to financial crime, sanctions, fraud, or other reportable risk factors, and is therefore considered non-material.Although negative media mentions were found, further review confirms they are either opinion-based, historical, or lack credible evidence of wrongdoing.""",
-                """[ Source 2 - Social Media] : Source validation and identity verification were conducted following the media alert. No corroborating evidence links the customer to the subject of the article. The customer’s risk profile remains unchanged."""
-                    ]
+            # summary = [
+            #     """[ Source 1 - News] : The adverse media screening identified several articles referencing the individual; however, the content was unrelated to financial crime, sanctions, fraud, or other reportable risk factors, and is therefore considered non-material.Although negative media mentions were found, further review confirms they are either opinion-based, historical, or lack credible evidence of wrongdoing.""",
+            #     """[ Source 2 - Social Media] : Source validation and identity verification were conducted following the media alert. No corroborating evidence links the customer to the subject of the article. The customer’s risk profile remains unchanged."""
+            #         ]
+            summary = ["""[ Source 1 - News] :The adverse media screening identified several articles referencing the individual; however, the content relates to regulatory and policy commentary and does not indicate involvement in financial crime, sanctions breaches, fraud, or other reportable risk factors. The information is therefore assessed as non-material to the individual’s risk profile.""",
+                       """[ Source 2 - Social Media] :The social media article describes a regulatory proposal aimed at reducing uncontrolled visitor inflows by introducing advance registration and quota‑based access, motivated by concerns over behavioral violations, cultural disregard, and recurring non‑compliance among short‑term entrants."""]
             sentimental_analysis = ["20% Positive, 10% Negative, 70% Neutral"
                                     ,"20% Positive,10% Negative,70% Neutral"]
             source = ['Website','Website']
@@ -1337,7 +1300,7 @@ def media_pep_screen_result():
             source = ['IND Gov']
             output = []
         elif case == "INDONESIA":
-            name = ["Aisyah Rahmani"]
+            name = ["Wayan Koster S"]
             pep_check_summary = ['0 hits found']
             pep_check_result = ['Not Matched']
             pep_check_status = ['Low']
@@ -1358,7 +1321,7 @@ def media_pep_screen_result():
 
     if req['tab'] == 'sanaction_screen':
         if case == "INDONESIA":
-            name = ["Aisyah Rahmani","Aisyah Rahmani","Aisyah Rahmani","Aisyah Rahmani"] 
+            name = ["Wayan Koster S","Wayan Koster S","Wayan Koster S","Wayan Koster S"] 
             sanaction_summary = ['0 hits found','0 hits found','0 hits found','0 hits found']
             sanaction_result = ['Not Matched','Not Matched','Not Matched','Not Matched'] 
             sanaction_status = ['Low','Low','Low','Low'] 
@@ -1379,6 +1342,7 @@ def media_pep_screen_result():
             temp_dict['sanaction_status'] = sanaction_status[i]
             temp_dict['source'] = source[i]
             output.append(temp_dict)
+
         # time.sleep(5)
         response = dict()
         response['output'] = output
@@ -1529,55 +1493,57 @@ def media_pep_report_download():
         req = request.get_json()
 
         tab = req.get("tab", "").strip().lower()
-        name = req.get("name", "").strip().lower()
+        name = (req.get("name") or "").strip()
 
-        files = {
-            ("media_screen", "aisyah rahmani"): "Aisyah_Rahmani_scrapper_output.txt",
-            ("pep_screen", "aisyah rahmani"): "Aisyah_Rahmani_pep_output.txt",
-            ("sanction_screen", "aisyah rahmani"): "Aisyah_Rahmani_sanction_output.txt",
-        }
+        # If no name provided, try to load a default from CONFIG
+        if not name:
+            # prefer explicit access_control individual_download_allowed
+            access_ctrl = CONFIG.get("access_control", {})
+            default_list = access_ctrl.get("individual_download_allowed") or []
+            if default_list:
+                name = default_list[0]
+            else:
+                # fallback to first person in person_to_case mapping
+                ptc = CONFIG.get("person_to_case", {})
+                if ptc:
+                    name = list(ptc.keys())[0]
 
-        print("RAW JSON:", req)
-        print("TAB:", repr(tab))
-        print("NAME:", repr(name))
-        print("EXPECTED KEYS:", files.keys())
+        name = name.strip()
 
+        # Normalize tab aliases (typos/variants) and lower-case for matching
+        if tab == "sanction_screen":
+            tab = "sanaction_screen"
+        tab = tab.lower()
+
+        # Accept any requested name (no per-person restriction)
         name_lower = name.lower()
-        key = (tab, name_lower)
-        
-        if key not in files:
-            # Generate list of available tabs for this person
-            available_tabs = [k[0] for k in files.keys() if k[1] == name_lower]
-            return jsonify({
-                "error": "Invalid tab for this user",
-                "received": key,
-                "available_tabs": list(set(available_tabs))
-            }), 404
 
-        file_path = os.path.join(BASE_DIR, "reports", files[key])
+        # Attempt to serve a file from reports/ using a predictable filename pattern
+        file_name = f"{name}_{tab}_report.txt"
+        file_path = os.path.join(BASE_DIR, "reports", file_name)
 
         if os.path.exists(file_path):
-            return send_file(file_path, as_attachment=True, download_name=f"{name}_{tab}_report.txt")
-        else:
-            # Generate a sample report when file doesn't exist
-            sample_content = f"Screening Report\n"
-            sample_content += f"=" * 50 + "\n\n"
-            sample_content += f"Name: {name}\n"
-            sample_content += f"Screening Type: {tab}\n"
-            sample_content += f"Report Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-            sample_content += f"Status: No adverse findings recorded.\n"
-            sample_content += f"Risk Level: Low\n\n"
-            sample_content += f"Report Details:\n"
-            sample_content += f"- All screening checks passed\n"
-            sample_content += f"- No matches found in reference databases\n"
-            sample_content += f"- Individual cleared for processing\n"
-            
-            return send_file(
-                io.BytesIO(sample_content.encode('utf-8')),
-                mimetype='text/plain',
-                as_attachment=True,
-                download_name=f"{name}_{tab}_report.txt"
-            )
+            return send_file(file_path, as_attachment=True, download_name=file_name)
+
+        # Generate a sample report when file doesn't exist
+        sample_content = "Screening Report\n"
+        sample_content += "=" * 50 + "\n\n"
+        sample_content += f"Name: {name}\n"
+        sample_content += f"Screening Type: {tab}\n"
+        sample_content += f"Report Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        sample_content += "Status: No adverse findings recorded.\n"
+        sample_content += "Risk Level: Low\n\n"
+        sample_content += "Report Details:\n"
+        sample_content += "- All screening checks passed\n"
+        sample_content += "- No matches found in reference databases\n"
+        sample_content += "- Individual cleared for processing\n"
+
+        return send_file(
+            io.BytesIO(sample_content.encode('utf-8')),
+            mimetype='text/plain',
+            as_attachment=True,
+            download_name=file_name
+        )
 
     except Exception as e:
         print(f"Error in media_pep_report_download: {str(e)}")
@@ -1660,21 +1626,11 @@ def download_entity_final_report():
     if not entity_name and not person_name:
         return jsonify({
             "error": "Missing required field 'entity' or 'name' in JSON body",
-            "example": {"name": "Aisyah Rahmani"}
+            "example": {"name": "Wayan Koster S"}
         }), 400
 
-    # Authorization check: Only Aisyah Rahmani can download individual reports
+    # No per-person authorization: allow downloading for any provided name/entity
     final_name = entity_name or person_name
-    if final_name and final_name.lower() == 'aisyah rahmani':
-        # Allowed - continue processing
-        pass
-    elif person_name and person_name.lower() != 'aisyah rahmani':
-        # Deny access for other individuals
-        print(f"Access denied: Only 'Aisyah Rahmani' is allowed. Requested: {person_name}")
-        return jsonify({
-            "error": "Access denied",
-            "message": "Only Aisyah Rahmani is authorized to download reports"
-        }), 403
 
     # If 'name' provided, generate individual report reusing existing logic
     if person_name and not entity_name:
@@ -1702,8 +1658,6 @@ def download_entity_final_report():
             c.drawString(x_margin, y, "This is a generated individual summary report.")
 
             y -= 40
-
-            import textwrap
 
             def draw_section(title, content):
                 nonlocal y
@@ -1737,13 +1691,13 @@ def download_entity_final_report():
 
             draw_section(
                 "KYC Documentation",
-                "Required KYC documentation has been obtained, verified and completed. "
+                "Required KYC documentation has been obtained, verified. KYC compliance is pending due to incomplete documentation."
                 "Screening Date: 03/02/2026."
             )
 
             draw_section(
                 "Adverse Media Screening Risk",
-                "Adverse media screening identified 4 hits, which were reviewed and determined to be not material. "
+                "Adverse media screening identified 2 hits, which were reviewed and determined to be not material. "
                 "Screening Date: 04/02/2026."
             )
 
@@ -2079,75 +2033,75 @@ def authentic_extract_aadhar_details(filepath):
                'address': address_values}  # , 'District':attributes['dist'], 'State':
     return details
 
-def authentic_passport_extraction(filepath):
-    mrz = read_mrz(filepath)
-    mrz_data = mrz.to_dict()
-    print(mrz_data)
-    response = dict()
-    nationalities_dict = {
-        "USA": "United States of America",
-        "CAN": "Canada",
-        "GBR": "United Kingdom",
-        "AUS": "Australia",
-        "DEU": "Germany",
-        "FRA": "France",
-        "JPN": "Japan",
-        "CHN": "China",
-        "IND": "India",
-        "BRA": "Brazil",
-        "RUS": "Russia",
-        "ZAF": "South Africa",
-        "MEX": "Mexico",
-        "ITA": "Italy",
-        "ESP": "Spain",
-        "ARG": "Argentina",
-        "KOR": "South Korea",
-        "SAU": "Saudi Arabia",
-        "TUR": "Turkey",
-        "EGY": "Egypt",
-        "GRC": "Greece",
-        "SWE": "Sweden",
-        "NOR": "Norway",
-        "DNK": "Denmark",
-        "CHE": "Switzerland",
-        "NLD": "Netherlands",
-        "BEL": "Belgium",
-        "IRL": "Ireland",
-        "NZL": "New Zealand",
-        "SGP": "Singapore",
-        "MYS": "Malaysia",
-        "THA": "Thailand",
-        "VNM": "Vietnam",
-        "IDN": "Indonesia",
-        "PHL": "Philippines",
-        "PAK": "Pakistan",
-        "BGD": "Bangladesh",
-        "LKA": "Sri Lanka",
-        "NPL": "Nepal",
-        "AFG": "Afghanistan",
-        "IRQ": "Iraq",
-        "IRN": "Iran",
-        "ISR": "Israel",
-        "JOR": "Jordan",
-        "KWT": "Kuwait",
-        "QAT": "Qatar",
-        "ARE": "United Arab Emirates",
-        "OMN": "Oman",
-        "YEM": "Yemen",
-        "BHR": "Bahrain"
-    }
-    response['Passport_Number'] = mrz_data['number']
-    response['Name'] = mrz_data['names']
-    response['Surname'] = mrz_data['surname']
-    response['Nationality'] = nationalities_dict.get(mrz_data['nationality'])
-    date_obj = datetime.strptime(mrz_data['date_of_birth'], "%y%m%d")
-    formatted_date = date_obj.strftime("%d/%m/%Y")
-    response['Date_of_birth'] = formatted_date
-    response['Gender'] = 'Male'
-    if mrz_data['sex'] == 'F':
-        response['Gender'] = 'Female'
-    response['Passport_Type'] = mrz_data['type']
-    return response
+# def authentic_passport_extraction(filepath):
+#     mrz = read_mrz(filepath)
+#     mrz_data = mrz.to_dict()
+#     print(mrz_data)
+#     response = dict()
+#     nationalities_dict = {
+#         "USA": "United States of America",
+#         "CAN": "Canada",
+#         "GBR": "United Kingdom",
+#         "AUS": "Australia",
+#         "DEU": "Germany",
+#         "FRA": "France",
+#         "JPN": "Japan",
+#         "CHN": "China",
+#         "IND": "India",
+#         "BRA": "Brazil",
+#         "RUS": "Russia",
+#         "ZAF": "South Africa",
+#         "MEX": "Mexico",
+#         "ITA": "Italy",
+#         "ESP": "Spain",
+#         "ARG": "Argentina",
+#         "KOR": "South Korea",
+#         "SAU": "Saudi Arabia",
+#         "TUR": "Turkey",
+#         "EGY": "Egypt",
+#         "GRC": "Greece",
+#         "SWE": "Sweden",
+#         "NOR": "Norway",
+#         "DNK": "Denmark",
+#         "CHE": "Switzerland",
+#         "NLD": "Netherlands",
+#         "BEL": "Belgium",
+#         "IRL": "Ireland",
+#         "NZL": "New Zealand",
+#         "SGP": "Singapore",
+#         "MYS": "Malaysia",
+#         "THA": "Thailand",
+#         "VNM": "Vietnam",
+#         "IDN": "Indonesia",
+#         "PHL": "Philippines",
+#         "PAK": "Pakistan",
+#         "BGD": "Bangladesh",
+#         "LKA": "Sri Lanka",
+#         "NPL": "Nepal",
+#         "AFG": "Afghanistan",
+#         "IRQ": "Iraq",
+#         "IRN": "Iran",
+#         "ISR": "Israel",
+#         "JOR": "Jordan",
+#         "KWT": "Kuwait",
+#         "QAT": "Qatar",
+#         "ARE": "United Arab Emirates",
+#         "OMN": "Oman",
+#         "YEM": "Yemen",
+#         "BHR": "Bahrain"
+#     }
+#     response['Passport_Number'] = mrz_data['number']
+#     response['Name'] = mrz_data['names']
+#     response['Surname'] = mrz_data['surname']
+#     response['Nationality'] = nationalities_dict.get(mrz_data['nationality'])
+#     date_obj = datetime.strptime(mrz_data['date_of_birth'], "%y%m%d")
+#     formatted_date = date_obj.strftime("%d/%m/%Y")
+#     response['Date_of_birth'] = formatted_date
+#     response['Gender'] = 'Male'
+#     if mrz_data['sex'] == 'F':
+#         response['Gender'] = 'Female'
+#     response['Passport_Type'] = mrz_data['type']
+#     return response
 
 
 @app.route('/individual_kyc', methods=['POST'])
@@ -2289,8 +2243,6 @@ def reference_db():
     json_response = [df.columns.tolist()] + df.values.tolist()
     print(json_response)
     return json_response
-
-
 
 #@app.route("/send_mail_with_attachment_non_compliant",methods=['POST'])
 @app.route("/email_RFI",methods=['POST'])
